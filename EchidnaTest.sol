@@ -2,6 +2,8 @@
 pragma solidity ^0.8.1;
 
 import "./ABDKMath64x64.sol";
+//run it with echidna-test abdk-libraries-solidity-master/EchidnaTest.sol --contract Test --test-mode assertion --corpus-dir corpus --seq-len 1 --test-limit 400000
+
 
 contract Test {
    int128 internal zero = ABDKMath64x64.fromInt(0);
@@ -83,6 +85,14 @@ contract Test {
    return ABDKMath64x64.fromUInt(x);
  }
 
+ function toUInt (int128 x) public returns (uint64) {
+   return ABDKMath64x64.toUInt(x);
+ }
+
+ function from128x128 (int256 x) public returns (int128) {
+   return ABDKMath64x64.from128x128(x);
+}
+
   //helper functions
 
   /**
@@ -161,17 +171,33 @@ contract Test {
 }
 
   //tests
+
+
    function testAdd(int128 x, int128 y, int128 z) public {
+    /*
      //ensure that the sum doesn't overflow
      //must be changed with the use of sub() instead of add(), because if the add() has a vulnerability or the code changed, the code should work
+
      int256 result = int256(x) + y;
      if ((result >= MIN_64x64) && (result <= MAX_64x64)){
       try this.add(x, y){
         assert (true);
-      } catch ( bytes memory /*lowLevelData*/){
+      } catch ( bytes memory ){
         assert(false);
       }
     }
+    */
+
+    //try to implement the precondition check using MIN, MAX and sub
+    bool precondition = (x <= sub(MAX_64x64,y) && (x >= sub(MIN_64x64, y)));
+    if (!precondition) {
+       try this.add(x, y){
+        assert (false);
+      } catch (bytes memory /*lowLevelData*/){
+        assert(true);
+      }
+    }  
+
 
      //x + y = y + x
      assert(ABDKMath64x64.add(x,y) == ABDKMath64x64.add(y,x));
@@ -186,6 +212,9 @@ contract Test {
      } else if (y == zero){
        assert(ABDKMath64x64.add(x,y) == x);  
      }
+
+    //x + y - y = x
+    assert(sub(add(x, y), y) == x);
    }
 
   /**
@@ -211,6 +240,7 @@ contract Test {
 
     //0 - x == neg(x)
     assert(neg(x) == sub(zero,x));
+
   }
 
    /**
@@ -263,15 +293,27 @@ contract Test {
    *@param y signed 64.64 fixed point number
    */
   function testSub(int128 x , int128 y) public{
+    /*
     //try to catch overflow in the sub function
     int256 result = int256(x) - y;
     if (result < MIN_64x64 || result > MAX_64x64){
       try this.sub(x, y){
         assert (false);
-      } catch ( bytes memory /*lowLevelData*/){
+      } catch ( bytes memory lowLevelData){
         assert(true);
       }
     }
+    */
+
+    //try to re-implement the precondition check using MIN, MAX and add
+    bool precondition = (x >= add(MIN_64x64, y) && (x <= add(MAX_64x64, y)));
+    if (!precondition) {
+       try this.sub(x, y){
+        assert (false);
+      } catch (bytes memory /*lowLevelData*/){
+        assert(true);
+      }
+    }  
 
     //if y = 0 -> x - y = x
     if (y == zero){
@@ -367,10 +409,21 @@ contract Test {
    *@param z signed 64.64 fixed point number
    */
   function testMul(int128 x, int128 y, int128 z) public{
-    //should check the precondition :D
+    //precondition that is should revert when the mul(x, y) >= MAX_64x64 or mul(x,y) <= MIN_64x64 
 
     //if x and y have the same sign, the mul is positive, else its negative
     //first check if x * y > 0, x and y must be both positive or negative
+    int256 preResult = int256(x) * y >> 64;
+    bool precondition = (preResult >= MIN_64x64 && preResult <= MAX_64x64);
+    if (!(precondition)){
+      try this.mul(x, y){
+        assert (false);
+      } catch (bytes memory /*lowLevelData*/){
+        assert(true);
+      }
+    }
+
+
 
     //zero included because if x = -1, y = -1 the answer is rounded to zero due to the 64.64 fraction
     if ((ABDKMath64x64.sub(x, zero) > 0 && ABDKMath64x64.sub(y, zero) > 0) || (ABDKMath64x64.sub(x, zero) < 0 && ABDKMath64x64.sub(y, zero) < 0)){
@@ -413,6 +466,13 @@ contract Test {
     //we can assert that is less or equal than, because we know the desired result!
     assert(ABDKMath64x64.mul(x, ABDKMath64x64.inv(x)) <= one);
 
+    //Normally x * y / y == x
+    //|x - x*y/y| <= one
+    //the biggest difference has to be one
+    //not sure?
+    int128 divMulX = div(mul(x, y), y);
+    int128 absDiff = abs(sub(divMulX, x));
+    assert(sub(absDiff, one) <= zero);
 
     //a * (-1) = -a
     assert(ABDKMath64x64.neg(x) == ABDKMath64x64.mul(x, ABDKMath64x64.fromInt(-1)));
@@ -442,6 +502,22 @@ contract Test {
     //the idea is : |integerNumber - z * xy| <= maximum of the abs(x,y,x)
     //after the conversion it looks like this:
     assert((sub(abs(sub(mul(z, mulxy), ABDKMath64x64.fromInt(integerNumber))),maximum(abs(maxyx), abs(maxyz)))) <= zero);
+ 
+
+    //Test -> wrong
+    int128 maxyx = maximum(abs(x), abs(y));
+    int128 maxyz = maximum(abs(y), abs(z));
+    int128 maxxyz = maximum(maxyz, maxyz);
+
+    
+    int128 mulxy = ABDKMath64x64.mul(x,y);
+    int128 mulyz = ABDKMath64x64.mul(z,y);
+    int128 mulxz = ABDKMath64x64.mul(x,z);
+
+    int128 mul1 = mul(z, mulxy);
+    int128 mul2 = mul(x, mulyz);
+
+    assert(abs(sub(mul1, mul2)) <= maxxyz);
     */
 
   }
@@ -538,10 +614,10 @@ contract Test {
     int128 maxNumber = maximum(x, y);
     int128 minNumber = minimum(x, y);
 
-    //lower than the max
+    //avg must be lower than the max
     assert(ABDKMath64x64.sub(avgResult, maxNumber) <= zero);
     
-    //higher thatn the minimum
+    //avg must be higher than the minimum
     assert(ABDKMath64x64.sub(avgResult, minNumber) >= zero);
 
   }
@@ -592,6 +668,18 @@ contract Test {
    *@param y signed 64.64 fixed point number
 */
 function testGavg(int128 x, int128 y) public{
+  //precondition that needs to be fullfied, x* y < 0
+  int256 m = int256 (x) * int256 (y);
+  bool precond = ((m >= 0) && (m < 0x4000000000000000000000000000000000000000000000000000000000000000));
+
+ if (!precond){
+  try this.testGavg(x, y){
+    assert (false);
+  } catch (bytes memory /*lowLevelData*/){
+    assert(true);
+  }
+  }
+ 
   int128 gavgXY = ABDKMath64x64.gavg(x, y);
   int128 gavgYX = ABDKMath64x64.gavg(y, x);
 
@@ -751,6 +839,11 @@ function testExp2(int128 x, int128 y) public{
     }
   }
 
+  //2 ^ 0 == 1
+  if (x == zero){
+    assert(ABDKMath64x64.exp_2(x) == one);
+  }
+
   //2 ^ x >= 0;
   assert(ABDKMath64x64.exp_2(x) >= zero);
 
@@ -806,24 +899,15 @@ function testExp(int128 x, int128 y) public{
 
 
 /**
-   * Test the fromInt functionality
-   * @param x signed 256-bit integer number
+  * Test the fromInt functionality
   * @param x signed 256-bit integer number
+  * @param y unsigned 256-bit integer number
 */
 function testFromInt(int256 x, uint256 y) public{
   //try to catch the revert for x
   bool precond1 = (x >= -0x8000000000000000 && x <= 0x7FFFFFFFFFFFFFFF);
   if (!precond1){
     try this.fromInt(x){
-      assert (false);
-    } catch (bytes memory /*lowLevelData*/){
-      assert(true);
-    }
-  }
-
-  //try to catch the revert for y
-  if (y > 0x7FFFFFFFFFFFFFFF){
-    try this.fromUInt(y){
       assert (false);
     } catch (bytes memory /*lowLevelData*/){
       assert(true);
@@ -838,4 +922,54 @@ function testFromInt(int256 x, uint256 y) public{
     assert (x2 == y2);
   }
   }
+
+/**
+  * Test the fromUInt functionality
+  * @param x signed 256-bit integer number
+*/
+function testFromUInt(uint256 x) public{
+  //try to catch the revert for x
+  if (x > 0x7FFFFFFFFFFFFFFF){
+    try this.fromUInt(x){
+      assert (false);
+    } catch (bytes memory /*lowLevelData*/){
+      assert(true);
+    }
+  }
+}
+
+/**
+  * Test the toUInt functionality
+  * @param x signed 64.64-bit fixed point number
+*/
+function testToUInt(int128 x) public{
+  //try to catch the revert for x
+  if (x < 0){
+    try this.toUInt(x){
+      assert (false);
+    } catch (bytes memory /*lowLevelData*/){
+      assert(true);
+    }
+  }
+}
+
+/**
+  * Test the from128x128 functionality
+  * @param x signed 64.64-bit fixed point number
+*/
+function testFrom128x128 (int256 x) public {
+  //try to catch the revert when the precondition is not successful!
+  bool precond = ((x >> 64) >= MIN_64x64 && (x >> 64) <= MAX_64x64);
+  if (!precond){
+    try this.from128x128(x){
+      assert (false);
+    } catch (bytes memory /*lowLevelData*/){
+      assert(true);
+    }
+  }
+}
+
+
+
+
 }
