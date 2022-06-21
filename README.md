@@ -1,5 +1,5 @@
 ### Echidna-Workshop
-Submission repository for the echidna workshop held by Secureum and Trail of Bits Team.
+Submission repository for the echidna workshop held by [Secureum](https://secureum.xyz/) and [Trail of Bits Team](https://www.trailofbits.com/).
 
 
 ### Files in the repo
