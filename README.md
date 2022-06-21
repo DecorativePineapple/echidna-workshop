@@ -3,9 +3,11 @@ Submission repository for the echidna workshop held by Secureum and Trail of Bit
 
 
 ### Files in the repo
-- https://github.com/DecorativePineapple/echidna-workshop/blob/main/ABDKMath64x64.sol : ABDKMATH64x64 library. Forked from the https://github.com/abdk-consulting/abdk-libraries-solidity/blob/master/ABDKMath64x64.sol
-- https://github.com/DecorativePineapple/echidna-workshop/blob/main/EchidnaTest.sol : assertions to test the ABDKMATH64x64 library. 
+- [ABDKMATH64x64 library](https://github.com/DecorativePineapple/echidna-workshop/blob/main/ABDKMath64x64.sol): Forked from the [official ABDK libary](https://github.com/abdk-consulting/abdk-libraries-solidity/blob/master/ABDKMath64x64.sol)
+- [EchidnaTest.sol](https://github.com/DecorativePineapple/echidna-workshop/blob/main/EchidnaTest.sol): file containinf the assertions to test the ABDKMATH64x64 library. 
+
 Run the `echidna-test` with :
+
 `echidna-test abdk-libraries-solidity-master/EchidnaTest.sol --contract Test --test-mode assertion --corpus-dir corpus --seq-len 1 --test-limit 400000` 
 
 
